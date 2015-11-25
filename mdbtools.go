@@ -56,6 +56,11 @@ type MDBIndex struct {
 	keyColOrder []int
 }
 
+type MapTableRow map[string]string
+type MapTable []MapTableRow
+type MapDB map[string] MapTable
+
+
 func NewMDB(filename string) (*MDB, error) {
 	dbfile := C.CString(filename)
 	defer C.free(unsafe.Pointer(dbfile))
@@ -165,6 +170,33 @@ func (db *MDB) FetchRow(tableDef *MDBTableDef) ([]string, error) {
 	}
 
 	return row, nil
+}
+
+func (db *MDB) ToMap() * MapDB{
+	var table_names, _ = db.Tables()
+
+	var map_db = make(MapDB,0)
+
+	if table_names != nil {
+		for _, tbn := range table_names {
+			var tb, _ = db.TableOpen(tbn)
+			if tb != nil {
+				var map_table = make(MapTable,0)
+				for ri := 0; true; ri++ {
+					var row, _ = db.FetchAssoc(tb)
+					if (row == nil) {
+						break
+					} else {
+						map_table = append(map_table, row)
+					}
+				}
+				map_db[tbn] = map_table
+				db.TableClose(tb)
+			}
+		}
+	}
+
+	return &map_db
 }
 
 func (db *MDB) FetchAssoc(tableDef *MDBTableDef) (map[string]string, error) {
